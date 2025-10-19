@@ -55,4 +55,4 @@ class Freq(Serializable):
 
     def __iter__(self) -> Iterator[tuple[BitVector, float, int]]:
         """Iterator over elements of `bitvectors`, `energies` and `num_occurrences`."""
-        return zip(self.bitvectors, self.energies, self.num_occurrences)
+        return zip(self.bitvectors, self.energies, self.num_occurrences, strict=False)

@@ -4,18 +4,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, SupportsFloat
 
+from tno.quantum.utils import BitVector, BitVectorLike
+from tno.quantum.utils.validation import check_real
+
 from tno.quantum.optimization.qubo.components._freq import Freq
 from tno.quantum.optimization.qubo.components._results._result_interface import (
     ResultInterface,
 )
-from tno.quantum.utils import BitVector, BitVectorLike
-from tno.quantum.utils.validation import check_real
 
 if TYPE_CHECKING:
     from typing import Self
 
 
-class BasicResult(ResultInterface):
+class BasicResult(ResultInterface):  # noqa: PLW1641
     """Most basic implementation of :py:class:`ResultInterface`."""
 
     @classmethod

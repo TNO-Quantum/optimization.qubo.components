@@ -8,18 +8,17 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any, SupportsFloat, SupportsInt
 
 import numpy as np
 from matplotlib import pyplot as plt
 from numpy.typing import ArrayLike, NDArray
-
 from tno.quantum.utils import BitVector, BitVectorLike
 from tno.quantum.utils.serialization import Serializable
 from tno.quantum.utils.validation import check_int, check_real, check_timedelta
 
 if TYPE_CHECKING:
-    from datetime import timedelta
     from typing import Self
 
     from matplotlib.axes import Axes
@@ -230,3 +229,107 @@ class ResultInterface(ABC, Serializable):
         return np.asarray(
             np.asarray(A) @ self.best_bitvector <= np.asarray(b), dtype=bool
         )
+
+    def __repr__(self) -> str:
+        """String representation of result."""
+        # Find public and @property attributes
+        attributes = [
+            "best_bitvector",
+            "best_value",
+            "execution_time",
+            "num_attempts",
+            "freq",
+        ]
+        for name in vars(self):  # public attributes
+            if not name.startswith("_") and name not in attributes:
+                attributes.append(name)
+        for name in dir(self):  # @property attributes
+            if not name.startswith("_") and name not in attributes:
+                attr = getattr(type(self), name, None)
+                if isinstance(attr, property):
+                    attributes.append(name)
+
+        return (
+            f"{self.__class__.__name__}("
+            f"best_bitvector={self.best_bitvector}, "
+            f"best_value={self.best_value}, "
+            f"execution_time={self.execution_time}, "
+            f"num_attempts={self.num_attempts}, "
+            f"freq=(Freq instance), "
+            + ", ".join(
+                [
+                    f"{name}=({type(getattr(self, name)).__name__} instance)"
+                    for name in attributes[5:]
+                ]
+            )
+            + ")"
+        )
+
+    def _repr_html_(self) -> str:
+        """HTML representation of result."""
+        # Find public and @property attributes
+        attributes = ["best_bitvector", "best_value", "execution_time", "num_attempts"]
+        for name in vars(self):  # public attributes
+            if not name.startswith("_") and name not in attributes:
+                attributes.append(name)
+        for name in dir(self):  # @property attributes
+            if not name.startswith("_") and name not in attributes:
+                attr = getattr(type(self), name, None)
+                if isinstance(attr, property):
+                    attributes.append(name)
+
+        html = (
+            "<style>"
+            ".result-interface {"
+            "   display: inline-block;"
+            "   border: 1px solid black;"
+            "   border-radius: 2px;"
+            "   background-color: white;"
+            "   color: black;"
+            "   table { margin: 4px 0px; width: 100%; }"
+            "   summary { padding: 4px 8px; }"
+            "   td, th { text-align: left; padding: 4px 8px; }"
+            "   th { font-weight: bold; }"
+            "   .tt { font-family: monospace; }"
+            "   .header { background-color: #002484; color: white; }"
+            " }"
+            "</style>"
+        )
+        html += "<div class='result-interface'>"
+        html += "<details>"
+        html += f"<summary class='header'>{self.__class__.__name__}</summary>"
+        html += "<table>"
+
+        for name in attributes:
+            if name == "freq":  # special case, handled at the end
+                continue
+            html += f"<tr><td class='tt'>{name}</td>"
+            value = getattr(self, name)
+            if isinstance(value, (int, float, timedelta)):
+                html += f"<td>{value}</td></tr>"
+            elif isinstance(value, BitVector):
+                html += f"<td class='tt'>{value}</td></tr>"
+            else:
+                html += (
+                    "<td style='color: #777;'>("
+                    f"<span class='tt'>{type(value).__name__}</span>"
+                    " instance)</td>"
+                )
+
+        html += "</table>"
+        html += "<details>"
+        html += "<summary>Frequency data</summary>"
+        html += "<table>"
+        html += "<tr><th>Bitvector</th><th>Value</th><th>Occurrences</th></tr>"
+        html += "".join(
+            [
+                f"<tr><td class='tt'>{bitvector}</td>"
+                f"<td>{value}</td><td>{num_occurrence}</td></tr>"
+                for bitvector, value, num_occurrence in self.freq
+            ]
+        )
+        html += "</table>"
+        html += "</details>"
+        html += "</details>"
+        html += "</div>"
+        return html

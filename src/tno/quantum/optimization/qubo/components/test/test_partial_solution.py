@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import pytest
-
-from tno.quantum.optimization.qubo.components import QUBO, PartialSolution
 from tno.quantum.utils import BitVector
 from tno.quantum.utils.serialization import check_serializable
+
+from tno.quantum.optimization.qubo.components import QUBO, PartialSolution
 
 
 def test_assign_variable() -> None:

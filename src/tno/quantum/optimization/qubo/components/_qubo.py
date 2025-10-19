@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from scipy.optimize import Bounds, minimize
-
 from tno.quantum.utils import BitVector, BitVectorLike
 from tno.quantum.utils.serialization import Serializable
 
@@ -26,7 +25,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
 
-class QUBO(Serializable):
+class QUBO(Serializable):  # noqa: PLW1641
     """Class representing a Quadratic Unconstrained Binary Optimization (QUBO) problem.
 
     Example:
@@ -94,15 +93,45 @@ class QUBO(Serializable):
         self._offset = 0.0
 
     @classmethod
-    def from_bqm(cls, bqm: BinaryQuadraticModel) -> tuple[Self, list[Any]]:
-        """Construct a :py:class:`QUBO` object from a :py:class:`~dimod.binary.BinaryQuadraticModel`.
+    def from_bqm(
+        cls, bqm: BinaryQuadraticModel, *, sort_labels: bool = False
+    ) -> tuple[Self, list[Any]]:
+        """Construct a :py:class:`QUBO` instance from :py:class:`~dimod.binary.BinaryQuadraticModel`.
+
+        This method converts a given :py:class:`~dimod.binary.BinaryQuadraticModel` into
+        a :py:class:`QUBO` representation. If the
+        :py:class:`~dimod.binary.BinaryQuadraticModel` variable type is `SPIN`, it will
+        be automatically converted to `BINARY` with a warning. The resulting QUBO matrix
+        is constructed using the linear and quadratic coefficients from the
+        :py:class:`~dimod.binary.BinaryQuadraticModel`, and returned along with the list
+        of variable labels used in the conversion. Optionally, the labels can be sorted
+        as well.
 
         Args:
-            bqm: Binary quadratic model to construct a :py:class:`QUBO` from.
+            bqm: The binary quadratic model to convert.
+            sort_labels: If ``True``, variable labels will be sorted before constructing
+                the QUBO matrix. Defaults to ``False``.
 
         Returns:
-            A tuple with a :py:class:`QUBO` of the :py:class:`~dimod.binary.BinaryQuadraticModel`
-            and a list of variable labels.
+            Tuple containing a :py:class:`QUBO` instance representing the input
+            :py:class:`~dimod.binary.BinaryQuadraticModel` and a (optionally sorted)
+            list of variable labels corresponding to the order used in the QUBO matrix.
+
+        Example:
+            The example below shows how to generate a :py:class:`QUBO` object from a
+            :py:class:`~dimod.binary.BinaryQuadraticModel`.
+
+            >>> from dimod import BinaryQuadraticModel
+            >>> bqm = BinaryQuadraticModel({"x": 1, "y": 2, "z": 3}, {("x", "y"): 4}, 5, "BINARY")
+            >>> qubo, labels = QUBO.from_bqm(bqm)
+            >>> labels
+            ['x', 'y', 'z']
+            >>> qubo.matrix
+            array([[1., 0., 0.],
+                   [4., 2., 0.],
+                   [0., 0., 3.]])
+            >>> qubo.offset
+            5.0
         """  # noqa : E501
         if bqm.vartype.name == "SPIN":
             warnings.warn(
@@ -110,7 +139,7 @@ class QUBO(Serializable):
             )
             bqm = deepcopy(bqm)
             bqm.change_vartype("BINARY")  # type: ignore[arg-type]
-        variables = list(bqm.variables)
+        variables = sorted(bqm.variables) if sort_labels else list(bqm.variables)  # type: ignore[type-var]
         lin, (row, col, quad_val), offset = bqm.to_numpy_vectors(
             variable_order=variables
         )  # type: ignore[misc]
@@ -556,7 +585,7 @@ class QUBO(Serializable):
         eigs = np.array(
             [
                 np.sort(np.linalg.eigvals(-a / 2.0 * ham_initial + b / 2.0 * ham_final))
-                for a, b in zip(A, B)
+                for a, b in zip(A, B, strict=False)
             ]
         )
 
@@ -597,11 +626,11 @@ class QUBO(Serializable):
         First the objective function is convexified and then the integrality constraints
         are dropped (see https://link.springer.com/article/10.1007/s10107-005-0637-9).
         The resulting (convex, constrained) continuous optimization problem is solved
-        via COBYLA algorithm. The solution gives a lower bound. An upper bound is
+        via TNC algorithm. The solution gives a lower bound. An upper bound is
         obtained by rounding the solution to the relaxation.
 
         Args:
-            kwargs: Optional keyword arguments to pass to COBYLA algorithm.
+            kwargs: Optional keyword arguments to pass to TNC algorithm.
 
         Returns:
             Solution to the convex relaxation of the QUBO.
@@ -615,9 +644,15 @@ class QUBO(Serializable):
         ):
             warnings.warn(
                 "QUBO bounds are being recomputed "
-                "but no optimization arguments were passed ",
+                "but no optimization arguments were passed",
                 stacklevel=1,
             )
+
+        # Special case: QUBO size zero
+        if self.size == 0:
+            self._lower_bound = self.offset
+            self._upper_bound = self.offset
+            return np.array([], dtype=np.float64)
 
         # Make sure matrix is symmetric
         self.to_symmetric_form()
@@ -638,15 +673,21 @@ class QUBO(Serializable):
         ) -> float:
             return float(x @ qmat @ x + q @ x)
 
+        def grad_qubo_fun(
+            x: NDArray[np.float64], qmat: NDArray[np.float64], q: NDArray[np.float64]
+        ) -> NDArray[np.float64]:
+            return 2.0 * qmat @ x + q
+
         # Optimize
         rng = np.random.RandomState(seed=0)
-        x0 = rng.randint(low=0, high=2, size=self.size)
+        x0 = rng.randint(low=0, high=2, size=self.size).astype(np.float64)
         options = {"disp": False}
         options.update(kwargs)
         res = minimize(
             qubo_fun,
             x0,
-            method="COBYLA",
+            method="TNC",
+            jac=grad_qubo_fun,
             args=(qmat_conv, q_conv),
             options=options,
             bounds=bounds,
@@ -654,7 +695,7 @@ class QUBO(Serializable):
         x_relax = np.array(res.x)
 
         # Get bounds
-        self._lower_bound = qubo_fun(x_relax, qmat_conv, q_conv)
+        self._lower_bound = qubo_fun(x_relax, qmat_conv, q_conv) + self.offset
         x_feas = np.round(x_relax)
         self._upper_bound = self.evaluate(x_feas)
 

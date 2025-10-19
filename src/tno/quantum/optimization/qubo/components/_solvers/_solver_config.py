@@ -8,8 +8,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from tno.quantum.optimization.qubo.components._solvers._solver import Solver
 from tno.quantum.utils import BaseConfig, get_installed_subclasses
+
+from tno.quantum.optimization.qubo.components._solvers._solver import Solver
 
 
 @dataclass(init=False)
@@ -73,7 +74,7 @@ class SolverConfig(BaseConfig[Solver[Any]]):
         supported_solvers: dict[str, type[Solver[Any]]] = {}
 
         # Discover all submodules in the qubo package
-        from tno.quantum.optimization import qubo
+        from tno.quantum.optimization import qubo  # noqa: PLC0415
 
         qubo_path = [str(path) for path in qubo.__path__]
         submodules = [name for _, name, _ in pkgutil.iter_modules(qubo_path)]

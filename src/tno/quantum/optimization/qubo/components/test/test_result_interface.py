@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pytest
 from numpy.typing import NDArray
+from tno.quantum.utils.serialization import check_serializable
 
 from tno.quantum.optimization.qubo.components import BasicResult, Freq
-from tno.quantum.utils.serialization import check_serializable
 
 if TYPE_CHECKING:
     from pathlib import Path

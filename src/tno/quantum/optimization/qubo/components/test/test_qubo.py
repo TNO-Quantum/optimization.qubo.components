@@ -13,9 +13,9 @@ import numpy as np
 import pytest
 from dimod import BinaryQuadraticModel
 from numpy.typing import NDArray
+from tno.quantum.utils.serialization import Serializable
 
 from tno.quantum.optimization.qubo.components import QUBO
-from tno.quantum.utils.serialization import Serializable
 
 if TYPE_CHECKING:
     from tno.quantum.utils import BitVectorLike
@@ -183,6 +183,23 @@ def test_to_and_from_bqm() -> None:
     assert bqm1 == bqm2
 
 
+def test_sort_labels() -> None:
+    bqm = BinaryQuadraticModel("BINARY")
+    bqm.add_linear("x", 1)
+    bqm.add_linear("z", 3)
+    bqm.add_linear("y", 2)
+    qubo_unsorted, variables_unsorted = QUBO.from_bqm(bqm, sort_labels=False)
+    qubo_sorted, variables_sorted = QUBO.from_bqm(bqm, sort_labels=True)
+
+    assert variables_unsorted == ["x", "z", "y"]
+    np.testing.assert_array_equal(
+        qubo_unsorted.matrix, [[1, 0, 0], [0, 3, 0], [0, 0, 2]]
+    )
+
+    assert variables_sorted == ["x", "y", "z"]
+    np.testing.assert_array_equal(qubo_sorted.matrix, [[1, 0, 0], [0, 2, 0], [0, 0, 3]])
+
+
 def test_to_bqm_no_variables(qubo: QUBO) -> None:
     """Test the transformation QUBO->bqm when to labels are given."""
     bqm = BinaryQuadraticModel(
@@ -326,7 +343,9 @@ correct_deltas = [
 ]
 
 
-@pytest.mark.parametrize(("x", "correct_delta"), zip(permutations, correct_deltas))
+@pytest.mark.parametrize(
+    ("x", "correct_delta"), zip(permutations, correct_deltas, strict=False)
+)
 def test_delta_x(x: NDArray[np.int_], correct_delta: NDArray[np.float64]) -> None:
     """Test if the delta_x function returns a correct derivative"""
     qubo = QUBO(QUBO_MATRIX)
@@ -347,7 +366,9 @@ correct_deltas = [
 ]
 
 
-@pytest.mark.parametrize(("x", "correct_delta"), zip(permutations, correct_deltas))
+@pytest.mark.parametrize(
+    ("x", "correct_delta"), zip(permutations, correct_deltas, strict=False)
+)
 def test_delta_x2(x: NDArray[np.int_], correct_delta: NDArray[np.float64]) -> None:
     """Test if the delta_x function returns a correct derivative"""
     qubo = QUBO(QUBO_MATRIX)
@@ -417,6 +438,9 @@ def test_spectral_gap_raise_error() -> None:
         (QUBO([[-13, 12, 14], [11, -18, -17], [-5, 13, 11]]), -18.0),
         (QUBO([[-3, 17, 10], [19, -12, 1], [-17, 12, 17]]), -12.0),
         (QUBO([[19, -12, 17], [1, -7, -3], [-14, -20, -8]]), -38.0),
+        (QUBO([[0]], +1000.0), +1000.0),
+        (QUBO([[0]], -1000.0), -1000.0),
+        (QUBO(np.zeros((0, 0)), 42.0), 42.0),
     ],
 )
 def test_ub_and_lb(qubo: QUBO, opt: float) -> None:
@@ -429,7 +453,7 @@ def test_compute_bounds_raise_warning() -> None:
     """Test the warning of compute_bounds."""
     qubo = QUBO([[4, -1, -10], [17, 10, -15], [-5, 6, -13]])
     expected_message = (
-        "QUBO bounds are being recomputed but no optimization arguments were passed "
+        "QUBO bounds are being recomputed but no optimization arguments were passed"
     )
     qubo.compute_bounds()
     with pytest.warns(UserWarning, match=re.escape(expected_message)):

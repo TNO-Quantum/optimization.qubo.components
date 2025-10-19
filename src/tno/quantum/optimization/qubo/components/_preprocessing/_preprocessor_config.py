@@ -8,10 +8,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from tno.quantum.utils import BaseConfig, get_installed_subclasses
+
 from tno.quantum.optimization.qubo.components._preprocessing._preprocessor import (
     Preprocessor,
 )
-from tno.quantum.utils import BaseConfig, get_installed_subclasses
 
 
 @dataclass(init=False)
@@ -59,7 +60,7 @@ class PreprocessorConfig(BaseConfig[Preprocessor]):
         supported_preprocessors: dict[str, type[Preprocessor]] = {}
 
         # Discover all submodules in the qubo package
-        from tno.quantum.optimization import qubo
+        from tno.quantum.optimization import qubo  # noqa: PLC0415
 
         qubo_path = [str(path) for path in qubo.__path__]
         submodules = [name for _, name, _ in pkgutil.iter_modules(qubo_path)]

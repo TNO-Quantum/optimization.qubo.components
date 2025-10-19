@@ -6,14 +6,14 @@ import re
 from typing import Any, SupportsIndex, SupportsInt
 
 import numpy as np
-
-from tno.quantum.optimization.qubo.components._qubo import QUBO
 from tno.quantum.utils import BitVector, BitVectorLike
 from tno.quantum.utils.serialization import Serializable
 from tno.quantum.utils.validation import check_binary, check_bool, check_int
 
+from tno.quantum.optimization.qubo.components._qubo import QUBO
 
-class PartialSolution(Serializable):
+
+class PartialSolution(Serializable):  # noqa: PLW1641
     """Class representing a partial solution to a QUBO.
 
     A partial solution is a collection of assignments of variables of the QUBO of one of

@@ -8,13 +8,14 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
+from tno.quantum.utils import BaseConfig, get_installed_subclasses
+
 from tno.quantum.optimization.qubo.components._postprocessing._postprocessor import (
     Postprocessor,
 )
 from tno.quantum.optimization.qubo.components._results._result_interface import (
     ResultInterface,
 )
-from tno.quantum.utils import BaseConfig, get_installed_subclasses
 
 RESULT_TYPE = TypeVar("RESULT_TYPE", bound=ResultInterface)
 
@@ -64,7 +65,7 @@ class PostprocessorConfig(BaseConfig[Postprocessor[Any]]):
         supported_postprocessors: dict[str, type[Postprocessor[Any]]] = {}
 
         # Discover all submodules in the qubo package
-        from tno.quantum.optimization import qubo
+        from tno.quantum.optimization import qubo  # noqa: PLC0415
 
         qubo_path = [str(path) for path in qubo.__path__]
         submodules = [name for _, name, _ in pkgutil.iter_modules(qubo_path)]

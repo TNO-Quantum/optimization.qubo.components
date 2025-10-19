@@ -7,10 +7,10 @@ from typing import SupportsFloat, SupportsInt
 
 import numpy as np
 import pytest
-
-from tno.quantum.optimization.qubo.components import Freq
 from tno.quantum.utils import BitVector, BitVectorLike
 from tno.quantum.utils.serialization import check_serializable
+
+from tno.quantum.optimization.qubo.components import Freq
 
 
 class TestFreq:
